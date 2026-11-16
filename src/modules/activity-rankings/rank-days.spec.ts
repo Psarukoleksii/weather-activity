@@ -14,13 +14,13 @@ const row = (activity: ActivityType, localDate: string, score: number | null, ap
   }) as ActivityScore;
 
 describe('rankDays', () => {
-  it('sorts days by score descending and numbers them from 1', () => {
+  it('returns days in date order whatever the scores, with rank by score', () => {
     const scores = [40, 75, 10, 90, 55, 20, 66];
     const rows = scores.map((s, i) => row(ActivityType.OUTDOOR_SIGHTSEEING, `2026-11-${16 + i}`, s));
-    const outdoor = rankDays(rows).find((a) => a.activity === ActivityType.OUTDOOR_SIGHTSEEING)!;
-    expect(outdoor.days.map((d) => d.score)).toEqual([90, 75, 66, 55, 40, 20, 10]);
-    expect(outdoor.days.map((d) => d.rank)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(outdoor.days[0].date).toBe('2026-11-19');
+    const outdoor = rankDays([...rows].reverse()).find((a) => a.activity === ActivityType.OUTDOOR_SIGHTSEEING)!;
+    expect(outdoor.days.map((d) => d.date)).toEqual(rows.map((r) => r.localDate));
+    expect(outdoor.days.map((d) => d.score)).toEqual(scores);
+    expect(outdoor.days.map((d) => d.rank)).toEqual([5, 2, 7, 1, 4, 6, 3]);
   });
 
   it('breaks ties by date: the nearer day ranks higher', () => {
@@ -31,11 +31,11 @@ describe('rankDays', () => {
       row(ActivityType.SKIING, '2026-11-16', 50),
     ];
     const skiing = rankDays(rows).find((a) => a.activity === ActivityType.SKIING)!;
-    expect(skiing.days.map((d) => [d.rank, d.date])).toEqual([
-      [1, '2026-11-18'],
-      [2, '2026-11-16'],
-      [3, '2026-11-17'],
-      [4, '2026-11-20'],
+    expect(skiing.days.map((d) => [d.date, d.rank])).toEqual([
+      ['2026-11-16', 2],
+      ['2026-11-17', 3],
+      ['2026-11-18', 1],
+      ['2026-11-20', 4],
     ]);
   });
 

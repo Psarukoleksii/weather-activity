@@ -7,7 +7,7 @@ export class ActivityRankingsResolver {
   constructor(private readonly rankings: ActivityRankingsService) {}
 
   @Query(() => ActivityRankingsResultDto, {
-    description: 'For each activity, the next 7 days ranked from best to worst',
+    description: 'For each activity, the next 7 days in date order, each with its rank (1 = best day)',
   })
   activityRankings(@Args() { city, country }: ActivityRankingsArgs): Promise<ActivityRankingsResultDto> {
     return this.rankings.getRankings(city, country);

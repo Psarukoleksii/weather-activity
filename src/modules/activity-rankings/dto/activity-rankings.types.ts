@@ -79,7 +79,7 @@ export class ActivityRankingDto {
   @Field(() => String, { nullable: true, description: 'Set when applicable = false' })
   notApplicableReason: string | null;
 
-  @Field(() => [DayScoreDto], { description: 'Best day first; empty when not applicable' })
+  @Field(() => [DayScoreDto], { description: 'In date order; empty when not applicable' })
   days: DayScoreDto[];
 }
 

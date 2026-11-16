@@ -5,8 +5,9 @@ import { ActivityRankingDto, DayScoreDto } from './dto/activity-rankings.types';
 type ScoreRow = Pick<ActivityScore, 'activity' | 'localDate' | 'applicable' | 'score' | 'rating' | 'confidence' | 'reasons'>;
 
 /**
- * Pure ranking: for each activity sorts the days by score descending, ties by date ascending
- * (the nearer day wins), and numbers them 1..n. Always returns all four activities.
+ * Pure ranking: for each activity numbers the days 1..n by score descending, ties by date ascending
+ * (the nearer day wins), then returns them in chronological order: the order never depends on the
+ * score, `rank` says which day is best. Always returns all four activities.
  */
 export function rankDays(rows: readonly ScoreRow[]): ActivityRankingDto[] {
   return ACTIVITY_ORDER.map((activity) => {
@@ -31,6 +32,7 @@ export function rankDays(rows: readonly ScoreRow[]): ActivityRankingDto[] {
       }))
       .sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));
     days.forEach((d, i) => (d.rank = i + 1));
+    days.sort((a, b) => a.date.localeCompare(b.date));
     return { activity, applicable: true, notApplicableReason: null, days };
   });
 }
