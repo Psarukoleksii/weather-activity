@@ -1,34 +1,34 @@
 # Weather Activity Ranking (POC)
 
-Сервіс приймає місто й країну та для кожної з чотирьох активностей (skiing, surfing, outdoor sightseeing, indoor sightseeing) ранжує найближчі 7 днів за оцінкою 0–100. Погоду бере з [Open-Meteo](https://open-meteo.com/), зберігає в Postgres і не ходить до Open-Meteo на кожен запит.
+Given a city and a country, the service ranks the next 7 days on a 0–100 scale for each of four activities: skiing, surfing, outdoor sightseeing and indoor sightseeing. Weather comes from [Open-Meteo](https://open-meteo.com/) and is stored in Postgres, so Open-Meteo is not called on every request.
 
-Стек: Node 22, NestJS 11, GraphQL (code-first, Apollo), TypeORM + Postgres 16, Redis (rate limit), Jest.
+Stack: Node 22, NestJS 11, GraphQL (code-first, Apollo), TypeORM + Postgres 16, Redis (rate limit), Jest.
 
-## Запуск
+## Running
 
 ```bash
 docker compose up --build
 ```
 
-Піднімаються чотири контейнери: `postgres`, `redis`, `api` (порт 3000, при старті застосовує міграції) і `worker` (стартує, коли `api` healthy). Змінні середовища беруться з `.env.example`; щоб їх перевизначити, створіть `.env` (він читається поверх).
+This starts four containers: `postgres`, `redis`, `api` (port 3000, applies migrations on start) and `worker` (starts once `api` is healthy). Environment variables are read from `.env.example`; to override them, create a `.env` file, which is read on top.
 
 ```bash
 curl localhost:3000/healthz
 # {"status":"ok"}
 ```
 
-### Локально, без Docker для застосунку
+### Locally, without Docker for the app
 
-Потрібні Postgres і Redis, доступні з хоста (compose їх назовні не відкриває). За замовчуванням застосунок шукає їх на `localhost:5432` і `localhost:6379`.
+Postgres and Redis must be reachable from the host (compose does not expose them). By default the app looks for them at `localhost:5432` and `localhost:6379`.
 
 ```bash
 npm ci && npm run build
-npm run start:api      # в іншому терміналі: npm run start:worker
+npm run start:api      # in another terminal: npm run start:worker
 ```
 
-### Міграції
+### Migrations
 
-Міграції лежать у `src/migrations` і не імпортуються в код: TypeORM підхоплює їх за шляхом (`src/libs/typeorm`). `api` застосовує їх при старті; вручну:
+Migrations live in `src/migrations` and are not imported by the code: TypeORM loads them by path (`src/libs/typeorm`). The `api` applies them on start; to run them by hand:
 
 ```bash
 npm run migration:show
@@ -42,23 +42,23 @@ npm run migration:run
 npm run migration:create -- src/migrations/add-something
 ```
 
-### Тести
+### Tests
 
 ```bash
 npm test
 ```
 
-Лише unit-тести, без БД і мережі: scoring, `DayWeatherContext`, utils (включно з днями переходу на літній час), парсинг записаних відповідей Open-Meteo з `test/fixtures`, ранжування днів.
+Unit tests only, with no database or network: scoring, `DayWeatherContext`, utils (including daylight saving time transitions), parsing of recorded Open-Meteo responses from `test/fixtures`, day ranking, configuration and worker shutdown.
 
 ## API
 
-`POST /graphql`, один query:
+`POST /graphql`, a single query:
 
 ```graphql
 activityRankings(city: String!, country: String!): ActivityRankingsResult!
 ```
 
-`country` це ISO 3166-1 alpha-2 (`PL`, `FR`, …).
+`country` is an ISO 3166-1 alpha-2 code (`PL`, `FR`, …).
 
 ```bash
 curl -s -H 'content-type: application/json' \
@@ -66,7 +66,7 @@ curl -s -H 'content-type: application/json' \
   localhost:3000/graphql
 ```
 
-Фрагмент відповіді:
+Response excerpt:
 
 ```json
 {
@@ -91,105 +91,105 @@ curl -s -H 'content-type: application/json' \
 }
 ```
 
-- `activities` завжди містить 4 активності; у застосовних 7 днів від найкращого до найгіршого (`rank` 1 = найкращий; при однаковій оцінці вище ближчий день).
-- `date` це локальна дата в часовому поясі міста; `dataAsOf` це час останнього оновлення погоди.
-- Рейтинги: 80–100 `EXCELLENT`, 60–79 `GOOD`, 40–59 `FAIR`, 20–39 `POOR`, нижче `AVOID`. Довіра: дні 0–2 `HIGH`, 3–4 `MEDIUM`, 5–7 `LOW`.
+- `activities` always holds all 4 activities; applicable ones have 7 days from best to worst (`rank` 1 is the best; on equal scores the nearer day ranks higher).
+- `date` is the local date in the city's time zone; `dataAsOf` is when the weather was last fetched.
+- Ratings: 80–100 `EXCELLENT`, 60–79 `GOOD`, 40–59 `FAIR`, 20–39 `POOR`, below that `AVOID`. Confidence: days 0–2 `HIGH`, 3–4 `MEDIUM`, 5–7 `LOW`.
 
-### Помилки
+### Errors
 
-| `extensions.code` | Коли |
+| `extensions.code` | When |
 | --- | --- |
-| `BAD_USER_INPUT` | Порожнє місто або країна не з двох літер |
-| `NOT_FOUND` | Геокодер не знайшов місто в цій країні |
-| `UPSTREAM_UNAVAILABLE` | Open-Meteo не відповів (timeout `OPENMETEO_CALL_TIMEOUT_SECONDS`) або повернув помилку |
-| `TOO_MANY_REQUESTS` | Перевищено rate limit (`THROTTLE_LIMIT` запитів за `THROTTLE_TTL_SECONDS` з одного IP); HTTP-статус 429, заголовок `Retry-After` |
+| `BAD_USER_INPUT` | Empty city, or the country is not two letters |
+| `NOT_FOUND` | The geocoder found no such city in that country |
+| `UPSTREAM_UNAVAILABLE` | Open-Meteo did not answer (timeout `OPENMETEO_CALL_TIMEOUT_SECONDS`) or returned an error |
+| `TOO_MANY_REQUESTS` | Rate limit exceeded (`THROTTLE_LIMIT` requests per `THROTTLE_TTL_SECONDS` from one IP); HTTP status 429 with a `Retry-After` header |
 
-## Як влаштовано
+## How it works
 
 ```
  Client ──POST /graphql──▶ api (resolver → services) ──▶ Postgres (places, weather_hourly, activity_scores)
-                                │ нове або застаріле місто                 ▲
+                                │ new or stale place                       ▲
                                 ▼                                          │ upsert
-                           Open-Meteo ◀──── worker (раз на хвилину) ───────┘
+                           Open-Meteo ◀──── worker (every minute) ─────────┘
 ```
 
-### Зберігання
+### Storage
 
-Підключення до БД зібране в `src/libs/typeorm`: `TypeOrmConfigPgFactory` будує опції (SSL, пул, `maxQueryExecutionTime`, шлях до міграцій) для Nest (`DatabaseModule.forRoot()`) і для CLI (`data-source.ts`). Entity успадковують `BaseEntity` (Active Record): `Place.findOneBy(...)`, `ActivityScore.find(...)` без репозиторіїв. Транзакційний шлях оновлення працює через `EntityManager` транзакції.
+The database connection lives in `src/libs/typeorm`: `TypeOrmConfigPgFactory` builds the options (SSL, pool, `maxQueryExecutionTime`, migrations path) for Nest (`DatabaseModule.forRoot()`) and for the CLI (`data-source.ts`). Entities extend `BaseEntity` (Active Record): `Place.findOneBy(...)`, `ActivityScore.find(...)` without repositories. The transactional refresh path goes through the transaction's `EntityManager`.
 
-- `places`: місто з геокодера (`geoname_id` унікальний), координати, висота, часовий пояс, `has_marine_data`, а також `last_requested_at` / `last_fetched_at` / `last_attempt_at`, які керують оновленням. Окремої черги немає: чергою є ця таблиця.
-- `weather_hourly`: погодинна погода на 8 днів (~192 рядки на місто), PK `(place_id, valid_at)` у UTC. `null` від Open-Meteo зберігається як `NULL` («невідомо», а не нуль).
-- `activity_scores`: оцінки на кожен з 8 локальних днів × 4 активності, з причинами (`reasons`) і розкладкою факторів (`components`). Це похідні дані; ранг не зберігається, бо залежить від того, який день сьогодні.
+- `places`: a city from the geocoder (`geoname_id` is unique), coordinates, elevation, time zone, `has_marine_data`, plus `last_requested_at` / `last_fetched_at` / `last_attempt_at`, which drive refreshing. There is no separate queue: this table is the queue.
+- `weather_hourly`: hourly weather for 8 days (~192 rows per city), PK `(place_id, valid_at)` in UTC. A `null` from Open-Meteo is stored as `NULL` ("unknown", not zero).
+- `activity_scores`: scores for each of 8 local days × 4 activities, with `reasons` and a breakdown of factors (`components`). This is derived data; the rank is not stored because it depends on which day is today.
 
-### Потік запиту
+### Request flow
 
-1. Rate limit за IP (лічильники в Redis, спільні для реплік api), валідація аргументів.
-2. Пошук міста за нормалізованою назвою (нижній регістр, без діакритики) і країною. Якщо міста немає, геокодування та вставка з `last_requested_at = now()`.
-3. `last_requested_at` оновлюється не частіше ніж раз на 10 хв.
-4. Якщо погоди ще немає або вона старша за `SYNC_REFRESH_AFTER_HOURS` (24 год), оновлення синхронно в запиті.
-5. Читання 7 днів оцінок від сьогодні (у часовому поясі міста), сортування й ранги.
+1. Per-IP rate limit (counters in Redis, shared by api replicas) and argument validation.
+2. Look up the city by normalized name (lower case, no diacritics) and country. If it is not there, geocode it and insert it with `last_requested_at = now()`.
+3. `last_requested_at` is updated at most once every 10 minutes.
+4. If there is no weather yet, or it is older than `SYNC_REFRESH_AFTER_HOURS` (24 h), refresh synchronously inside the request.
+5. Read 7 days of scores starting today (in the city's time zone), sort them and assign ranks.
 
-Першого запиту для нового міста чекаємо геокодер + прогноз (~0,3–0,5 с); далі відповідь іде з Postgres за кілька мілісекунд.
+The first request for a new city waits for the geocoder and the forecast (~0.3–0.5 s); after that the answer comes from Postgres in a few milliseconds.
 
-### Оновлення
+### Refreshing
 
-`ForecastRefreshService.refreshPlace()` це єдиний шлях оновлення для api і worker: транзакція з `pg_advisory_xact_lock(place_id)` → Forecast API (+ Marine API, якщо в місця є море) → upsert `weather_hourly` → видалення минулих рядків → оцінки 8 днів → upsert `activity_scores` → `last_fetched_at`. Перший виклик Marine API з усіма `null` позначає місто `has_marine_data = false`, і цей виклик більше не робиться.
+`ForecastRefreshService.refreshPlace()` is the single refresh path for both the api and the worker: a transaction with `pg_advisory_xact_lock(place_id)` → Forecast API (+ Marine API if the place has a sea) → upsert `weather_hourly` → delete past rows → score 8 days → upsert `activity_scores` → `last_fetched_at`. A first Marine API call that returns only `null` marks the place `has_marine_data = false`, and that call is never made for it again.
 
-Worker раз на `WORKER_POLL_INTERVAL_SECONDS` вибирає до `WORKER_BATCH_SIZE` міст, які запитували за останні 7 днів і дані яких старші за 3 год (гарячі: запит за останню добу) або 12 год (теплі). Перед оновленням ставить `last_attempt_at`, тож місто, яке падає, повторюється не частіше ніж раз на `WORKER_RETRY_AFTER_MINUTES` і не займає чергу. Місто, яке вже оновлює інший процес, пропускається (`pg_try_advisory_xact_lock`). Міста без запитів 7 днів не оновлюються.
+Every `WORKER_POLL_INTERVAL_SECONDS` the worker picks up to `WORKER_BATCH_SIZE` cities requested within the last 7 days whose data is older than 3 h (hot: requested within the last day) or 12 h (warm). It sets `last_attempt_at` before refreshing, so a failing city is retried no more often than every `WORKER_RETRY_AFTER_MINUTES` and does not block the queue. A city another process is already refreshing is skipped (`pg_try_advisory_xact_lock`). Cities with no requests for 7 days are not refreshed. On shutdown the worker finishes the city it is refreshing before closing the database connection.
 
 ### Scoring
 
-`ActivityScoringService` (без I/O) отримує `DayWeatherContext` (погода одного локального дня) і рахує `S = min(стеля, 100 × Σ wᵢ · fᵢ(xᵢ))`, де `fᵢ` це кусково-лінійні криві. Якщо значення фактора невідоме, ваги решти факторів перенормовуються, а в `reasons` з'являється `Missing data: …`. Ваги, криві, стелі та `ALGO_VERSION` лежать у [`scoring.config.ts`](src/modules/scoring/scoring.config.ts).
+`ActivityScoringService` (no I/O) takes a `DayWeatherContext` (the weather of one local day) and computes `S = min(cap, 100 × Σ wᵢ · fᵢ(xᵢ))`, where `fᵢ` are piecewise-linear curves. If a factor's value is unknown, the weights of the remaining factors are renormalized and `reasons` gets a `Missing data: …` entry. Weights, curves, caps and `ALGO_VERSION` are in [`scoring.config.ts`](src/modules/scoring/scoring.config.ts).
 
-| Активність | Застосовна | Стелі | Фактори |
+| Activity | Applicable | Caps | Factors (weights) |
 | --- | --- | --- | --- |
-| Skiing | висота ≥ `SKI_MIN_ELEVATION_M` (300 м) | покрив < 10 см → 10; покрив < 20 см і максимум > 3 °C → 10; пориви > 70 км/год → 15 | глибина снігу 30, свіжий сніг 15, температура 20, вітер 15, видимість 10, опади 10 |
-| Surfing | є морські дані | хвилі < 0,3 м → 10; хвилі > 4 м або пориви > 60 км/год → 20 | висота хвилі 35, період свеллу 20, вітер 25, температура води 10, дощ 10 |
-| Outdoor | завжди | гроза → 10; відчувана < −10 або > 38 °C → 25 | опади 35, відчувана температура 25, сонячність 15, тривалість дня 10, вітер 10, видимість 5 |
-| Indoor | завжди | небезпечна дорога (сильний сніг, крижаний дощ, пориви > 80 км/год) → −20 | `60 + 40 × (1 − комфорт надворі)` |
+| Skiing | elevation ≥ `SKI_MIN_ELEVATION_M` (300 m) | snow < 10 cm → 10; snow < 20 cm and daily max > 3 °C → 10; gusts > 70 km/h → 15 | snow depth 30, fresh snow 15, temperature 20, wind 15, visibility 10, precipitation 10 |
+| Surfing | marine data available | waves < 0.3 m → 10; waves > 4 m or gusts > 60 km/h → 20 | wave height 35, swell period 20, wind 25, water temperature 10, rain 10 |
+| Outdoor | always | thunderstorm → 10; feels-like < −10 or > 38 °C → 25 | precipitation 35, feels-like temperature 25, sunshine 15, day length 10, wind 10, visibility 5 |
+| Indoor | always | dangerous roads (heavy snow, freezing rain, gusts > 80 km/h) → −20 | `60 + 40 × (1 − outdoor comfort)` |
 
-Skiing, surfing і outdoor рахуються за світлові години, indoor за 09:00–18:00 місцевого часу.
+Skiing, surfing and outdoor are scored over daylight hours, indoor over 09:00–18:00 local time.
 
-## Змінні середовища
+## Environment variables
 
-Див. [`.env.example`](.env.example).
+See [`.env.example`](.env.example).
 
-Конфіг збирається в `src/environment`: на кожну секцію є фабрика (`environment-pg.factory.ts`, `environment-refresh.factory.ts`, …), а тип секції лежить біля модуля, який її читає (`DbConfigType` у `libs/typeorm`, `RefreshConfigType` у `forecast-refresh`). `environment-api.factory.ts` і `environment-worker.factory.ts` збирають набір секцій кожного застосунку (`ApiConfigType` / `WorkerConfigType`): worker не отримує HTTP, Redis і rate limit. Невалідне значення (наприклад, `WORKER_BATCH_SIZE=0`) зупиняє старт із повідомленням про змінну.
+Configuration is assembled in `src/environment`: each section has a factory (`environment-pg.factory.ts`, `environment-refresh.factory.ts`, …), and each section's type lives next to the module that reads it (`DbConfigType` in `libs/typeorm`, `RefreshConfigType` in `forecast-refresh`). `environment-api.factory.ts` and `environment-worker.factory.ts` assemble the sections of each app (`ApiConfigType` / `WorkerConfigType`): the worker gets no HTTP, Redis or rate limit settings. An invalid value (for example `WORKER_BATCH_SIZE=0`) stops startup with a message naming the variable.
 
-| Змінна | За замовчуванням | Призначення |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `postgres` / `5432` / `weather` / `app` / `app` | Підключення до Postgres (поза Docker за замовчуванням `localhost`) |
-| `DB_POOL_SIZE` | `10` | Розмір пулу з'єднань |
-| `DB_LOGGING` | `error,warn,migration` | `true`, `false`, `all` або рівні TypeORM через кому |
-| `DB_MAX_QUERY_EXECUTION_TIME_MS` | `500` | Запити, довші за це, логуються як повільні |
-| `DB_SSL` | `false` | TLS до Postgres |
-| `DB_SSL_CA` / `DB_SSL_CERT` / `DB_SSL_KEY` | порожньо | Шляхи до PEM-файлів (від робочої директорії); без них використовуються системні CA |
-| `DB_SSL_REJECT_UNAUTHORIZED` | `true` | Перевіряти сертифікат сервера |
-| `REDIS_URL` | `redis://redis:6379` | Rate limit (лише api) |
+| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `postgres` / `5432` / `weather` / `app` / `app` | Postgres connection (outside Docker the host defaults to `localhost`) |
+| `DB_POOL_SIZE` | `10` | Connection pool size |
+| `DB_LOGGING` | `error,warn,migration` | `true`, `false`, `all` or comma-separated TypeORM log levels |
+| `DB_MAX_QUERY_EXECUTION_TIME_MS` | `500` | Queries slower than this are logged as slow |
+| `DB_SSL` | `false` | TLS to Postgres |
+| `DB_SSL_CA` / `DB_SSL_CERT` / `DB_SSL_KEY` | empty | Paths to PEM files (relative to the working directory); without them the system CAs are used |
+| `DB_SSL_REJECT_UNAUTHORIZED` | `true` | Verify the server certificate |
+| `REDIS_URL` | `redis://redis:6379` | Rate limit (api only) |
 | `PORT` | `3000` | |
-| `THROTTLE_TTL_SECONDS` / `THROTTLE_LIMIT` | `60` / `60` | Rate limit за IP |
-| `OPENMETEO_CALL_TIMEOUT_SECONDS` | `4` | Timeout одного виклику |
-| `WORKER_POLL_INTERVAL_SECONDS` | `60` | Частота опитування БД воркером |
-| `WORKER_BATCH_SIZE` | `10` | Міст за один тік |
-| `WORKER_RETRY_AFTER_MINUTES` | `15` | Пауза перед повторною спробою для міста |
-| `SYNC_REFRESH_AFTER_HOURS` | `24` | Дані, старші за це, оновлюються синхронно в запиті |
-| `HOT_REFRESH_HOURS` / `WARM_REFRESH_HOURS` | `3` / `12` | Інтервали оновлення |
-| `SKI_MIN_ELEVATION_M` | `300` | Правило застосовності skiing |
+| `THROTTLE_TTL_SECONDS` / `THROTTLE_LIMIT` | `60` / `60` | Per-IP rate limit |
+| `OPENMETEO_CALL_TIMEOUT_SECONDS` | `4` | Timeout of a single call |
+| `WORKER_POLL_INTERVAL_SECONDS` | `60` | How often the worker polls the database |
+| `WORKER_BATCH_SIZE` | `10` | Cities per tick |
+| `WORKER_RETRY_AFTER_MINUTES` | `15` | Pause before retrying a city |
+| `SYNC_REFRESH_AFTER_HOURS` | `24` | Older data is refreshed synchronously inside the request |
+| `HOT_REFRESH_HOURS` / `WARM_REFRESH_HOURS` | `3` / `12` | Refresh intervals |
+| `SKI_MIN_ELEVATION_M` | `300` | Skiing applicability rule |
 
-## Обмеження POC
+## POC limitations
 
-- Лише happy flow: немає retry, черги невдалих оновлень, метрик.
-- Пошук міста за точною назвою й країною; альтернативні написання ("Kiev" / "Kyiv") кожного разу йдуть у геокодер (потрапляють на той самий рядок через `geoname_id`).
-- Skiing і surfing оцінюються в координатах міста, без бази курортів і серф-спотів.
-- Місто, яке не запитували понад добу, перший раз відповідає повільніше (синхронне оновлення).
-- Кешу відповідей немає: запит і так дешевий. Готову відповідь можна кешувати в наявному Redis (ключ `rankings:{country}:{name_normalized}`, TTL кілька хвилин).
-- Open-Meteo, вільний тариф: некомерційне використання, ліцензія CC-BY 4.0 з атрибуцією; глобального лічильника викликів немає.
+- Happy path only: no retries, no queue of failed refreshes, no metrics.
+- Cities are looked up by exact name and country; alternative spellings ("Kiev" / "Kyiv") go to the geocoder every time (and land on the same row via `geoname_id`).
+- Skiing and surfing are scored at the city's own coordinates, without a database of resorts or surf spots.
+- A city not requested for over a day answers more slowly the first time (synchronous refresh).
+- There is no response cache: the query is already cheap. The finished response could be cached in the existing Redis (key `rankings:{country}:{name_normalized}`, TTL of a few minutes).
+- Open-Meteo free tier: non-commercial use, CC BY 4.0 license with attribution; there is no global call counter.
 
-## Що далі
+## Next steps
 
-- Кеш відповідей у Redis і метрики (час відповіді, виклики Open-Meteo, черга воркера).
-- Retry з backoff для Open-Meteo; окремий стан для міст, що постійно падають.
-- База курортів і серф-спотів поруч із містом замість координат самого міста.
-- E2E-тести з Testcontainers.
+- Response cache in Redis and metrics (response time, Open-Meteo calls, worker queue).
+- Retries with backoff for Open-Meteo; a separate state for cities that keep failing.
+- A database of resorts and surf spots near the city instead of the city's own coordinates.
+- E2E tests with Testcontainers.
 
 Weather data by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0).

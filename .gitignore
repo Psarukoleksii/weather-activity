@@ -12,3 +12,6 @@ yarn-error.log*
 /dist
 /coverage
 .env
+
+# Local planning notes
+/IMPLEMENTATION_PLAN.md
