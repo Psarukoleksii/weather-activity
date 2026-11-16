@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16
+    environment: {POSTGRES_USER: app, POSTGRES_PASSWORD: app, POSTGRES_DB: weather}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d weather"]
+      interval: 5s
+      retries: 10
+
+  redis:                             # rate limit counters; no volume, the data is temporary
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  api:                               # applies migrations on start (migrationsRun)
+    build: .
+    image: weather-activity:latest
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    command: ["node", "dist/main.js"]
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz || exit 1"]
+      interval: 5s
+      retries: 10
+
+  worker:                            # starts after api, when the migrations are applied
+    image: weather-activity:latest
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    command: ["node", "dist/workers/worker.js"]
+    # On SIGTERM the worker finishes the place it is refreshing before exiting.
+    stop_grace_period: 30s
+    depends_on: {api: {condition: service_healthy}}
+
+volumes:
+  pgdata:
