@@ -4,7 +4,7 @@ import type { ScoringConfigType } from '../../../modules/scoring/scoring-config.
 import type { OpenMeteoConfigType } from '../../../modules/weather/open-meteo-config.type';
 import type { BasicConfigType } from '../basic-config.type';
 import type { RedisConfigType } from '../redis-config.type';
-import type { ThrottleConfigType } from '../throttle-config.type';
+import type { ThrottleConfigType } from '../../../libs/throttler/throttle-config.type';
 
 export interface ApiConfigType
   extends Readonly<BasicConfigType>,

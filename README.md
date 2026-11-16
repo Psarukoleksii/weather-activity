@@ -117,6 +117,8 @@ Response excerpt:
 
 The database connection lives in `src/libs/typeorm`: `TypeOrmConfigPgFactory` builds the options (SSL, pool, `maxQueryExecutionTime`, migrations path) for Nest (`DatabaseModule.forRoot()`) and for the CLI (`data-source.ts`). Entities extend `BaseEntity` (Active Record): `Place.findOneBy(...)`, `ActivityScore.find(...)` without repositories. The transactional refresh path goes through the transaction's `EntityManager`.
 
+The other infrastructure modules follow the same shape (a config factory plus a module that `AppModule` just imports): `src/libs/throttler` (`AppThrottlerModule`: Redis-backed rate limit and the global `GqlThrottlerGuard`) and `src/libs/graphql` (`AppGraphQLModule`: code-first Apollo setup and the filter that passes expected `GraphQLError`s through).
+
 - `places`: a city from the geocoder (`geoname_id` is unique), coordinates, elevation, time zone, `has_marine_data`, plus `last_requested_at` / `last_fetched_at` / `last_attempt_at`, which drive refreshing. There is no separate queue: this table is the queue.
 - `weather_hourly`: hourly weather for 8 days (~192 rows per city), PK `(place_id, valid_at)` in UTC. A `null` from Open-Meteo is stored as `NULL` ("unknown", not zero).
 - `activity_scores`: scores for each of 8 local days × 4 activities, with `reasons` and a breakdown of factors (`components`). This is derived data; the rank is not stored because it depends on which day is today.

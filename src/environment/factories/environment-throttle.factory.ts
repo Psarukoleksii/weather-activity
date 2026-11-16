@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import type { ThrottleConfigType } from '../types/throttle-config.type';
+import type { ThrottleConfigType } from '../../libs/throttler/throttle-config.type';
 import { get } from '../utils/env-var';
 
 export const environmentThrottleFactory = registerAs(
