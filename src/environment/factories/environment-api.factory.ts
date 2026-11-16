@@ -2,6 +2,7 @@ import type { ApiConfigType } from '../types/env-configs/api-config.type';
 import { environmentBasicFactory } from './environment-basic.factory';
 import { environmentOpenMeteoFactory } from './environment-open-meteo.factory';
 import { environmentPgFactory } from './environment-pg.factory';
+import { environmentPlacesFactory } from './environment-places.factory';
 import { environmentRedisFactory } from './environment-redis.factory';
 import { environmentRefreshFactory } from './environment-refresh.factory';
 import { environmentScoringFactory } from './environment-scoring.factory';
@@ -15,6 +16,7 @@ const factories = [
   environmentOpenMeteoFactory,
   environmentScoringFactory,
   environmentRefreshFactory,
+  environmentPlacesFactory,
 ] as const;
 
 export const environmentApiFactory = (): ApiConfigType =>

@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import type { RedisConfigType } from '../types/redis-config.type';
+import type { RedisConfigType } from '../../libs/redis/redis-config.type';
 import { get } from '../utils/env-var';
 
 export const environmentRedisFactory = registerAs(

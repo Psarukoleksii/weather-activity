@@ -11,7 +11,8 @@
     "test": "jest",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/libs/typeorm/data-source.ts",
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/libs/typeorm/data-source.ts",
-    "migration:create": "typeorm-ts-node-commonjs migration:create"
+    "migration:create": "typeorm-ts-node-commonjs migration:create",
+    "scores:recompute": "node dist/commands/recompute-scores/recompute-scores.command.js"
   },
   "dependencies": {
     "@apollo/server": "^5.5.2",

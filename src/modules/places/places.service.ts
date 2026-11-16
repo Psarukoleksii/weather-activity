@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { Place } from '../../models/place.entity';
 import { normalizeName } from '../../utils/normalize-name';
 import { OpenMeteoClient } from '../weather/open-meteo.client';
+import { GeocodingMissCache } from './geocoding-miss.cache';
 
 @Injectable()
 export class PlacesService {
-  constructor(private readonly openMeteo: OpenMeteoClient) {}
+  constructor(
+    private readonly openMeteo: OpenMeteoClient,
+    private readonly misses: GeocodingMissCache,
+  ) {}
 
   /** Lookup by normalised name and country; on a tie (same-name towns) the oldest row wins. */
   findByName(city: string, countryCode: string): Promise<Place | null> {
@@ -21,12 +25,17 @@ export class PlacesService {
 
   /**
    * Geocodes the city and stores it with last_requested_at = now(), so the worker sees it.
-   * Returns null when the geocoder knows no such city in that country.
+   * Returns null when the geocoder knows no such city in that country; that answer is cached
+   * (GeocodingMissCache), only real "not found", never upstream errors.
    * The geocoder's own spelling is stored, so "Kiev" lands on the "Kyiv" row via geoname_id.
    */
   async createFromGeocoder(city: string, countryCode: string): Promise<Place | null> {
+    if (await this.misses.isKnownMiss(city, countryCode)) return null;
     const hit = await this.openMeteo.geocode(city.trim(), countryCode);
-    if (!hit) return null;
+    if (!hit) {
+      await this.misses.rememberMiss(city, countryCode);
+      return null;
+    }
 
     await Place.createQueryBuilder()
       .insert()

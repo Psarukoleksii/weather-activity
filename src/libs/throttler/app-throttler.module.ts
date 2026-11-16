@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { RedisModule } from '../redis';
 import { GqlThrottlerGuard } from './gql-throttler.guard';
 import { ThrottlerConfigFactory } from './throttler-config.factory';
 
@@ -9,7 +10,7 @@ import { ThrottlerConfigFactory } from './throttler-config.factory';
  * that also understands GraphQL. Opt out with @SkipThrottle() (e.g. /healthz).
  */
 @Module({
-  imports: [ThrottlerModule.forRootAsync({ useClass: ThrottlerConfigFactory })],
+  imports: [ThrottlerModule.forRootAsync({ imports: [RedisModule], useClass: ThrottlerConfigFactory })],
   providers: [{ provide: APP_GUARD, useClass: GqlThrottlerGuard }],
 })
 export class AppThrottlerModule {}

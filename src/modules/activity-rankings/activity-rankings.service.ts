@@ -14,6 +14,8 @@ import { rankDays } from './rank-days';
 
 export const RANKING_DAYS = 7;
 const COUNTRY_RE = /^[A-Za-z]{2}$/;
+/** Longest real place names are well under this; longer input never reaches the geocoder. */
+export const MAX_CITY_LENGTH = 70;
 
 /**
  * Request flow (plan, section 5): validate → find or geocode the place → bump last_requested_at →
@@ -37,6 +39,7 @@ export class ActivityRankingsService {
     const city = (cityArg ?? '').trim();
     const country = (countryArg ?? '').trim().toUpperCase();
     if (!city) throw badInput('city must not be empty');
+    if (city.length > MAX_CITY_LENGTH) throw badInput(`city must be at most ${MAX_CITY_LENGTH} characters`);
     if (!COUNTRY_RE.test(country)) throw badInput('country must be a two-letter ISO 3166-1 alpha-2 code');
 
     let place = await this.places.findByName(city, country);

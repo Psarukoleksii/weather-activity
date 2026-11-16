@@ -31,7 +31,7 @@ describe('environment', () => {
 
   it('api config has every api section with defaults', () => {
     const config = environment(AppConst.Api);
-    expect(Object.keys(config).sort()).toEqual(['openMeteo', 'pg', 'port', 'redis', 'refresh', 'scoring', 'throttle']);
+    expect(Object.keys(config).sort()).toEqual(['openMeteo', 'pg', 'places', 'port', 'redis', 'refresh', 'scoring', 'throttle']);
     expect(config.port).toBe(3000);
     expect(config.throttle).toEqual({ ttlSeconds: 60, limit: 60 });
     expect(config.pg).toMatchObject({ port: 5432, useSSL: false, maxQueryExecutionTime: 500, logging: ['error', 'warn', 'migration'] });
