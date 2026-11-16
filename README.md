@@ -24,6 +24,16 @@ curl -s -H 'content-type: application/json' \
   localhost:3000/graphql
 ```
 
+### Or just ask Claude
+
+Instead of writing GraphQL by hand, you can ask [Claude Code](https://claude.com/claude-code) in this repository. The project ships a skill, [`.claude/skills/activity-ranking`](.claude/skills/activity-ranking/SKILL.md), that calls the running api and explains the answer in plain words:
+
+```text
+/activity-ranking Kyiv
+```
+
+or simply "What's the best day for sightseeing in Zakopane this week?". Claude works out the country code, sends the query and replies with the best day for each activity, the other good days and any day to avoid. The api has to be running (`docker compose up --build -d`).
+
 Unit tests: `npm ci && npm test`.
 
 ---
