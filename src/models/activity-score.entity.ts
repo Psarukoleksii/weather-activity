@@ -11,7 +11,7 @@ export interface ScoreComponent {
 }
 
 /**
- * Derived data: can always be recomputed from weather_hourly.
+ * Derived data: computed from weather_hourly on every refresh.
  * The rank of a day is not stored, it depends on "today" and is computed on read.
  */
 @Entity('activity_scores')

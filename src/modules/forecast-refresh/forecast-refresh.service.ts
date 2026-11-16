@@ -5,7 +5,6 @@ import { ActivityScore, ActivityScoreRow } from '../../models/activity-score.ent
 import { Place } from '../../models/place.entity';
 import { WeatherHourly } from '../../models/weather-hourly.entity';
 import { ActivityScoringService } from '../scoring/activity-scoring.service';
-import { ALGO_VERSION } from '../scoring/scoring.config';
 import { WeatherService } from '../weather/weather.service';
 import { scoreDays } from './score-days';
 
@@ -58,36 +57,7 @@ export class ForecastRefreshService {
     return outcome;
   }
 
-  /**
-   * Recomputes the scores of a place from stored weather_hourly, without calling Open-Meteo
-   * (e.g. after ALGO_VERSION changed). Leaves last_fetched_at alone: the weather is as old as it was.
-   * Returns the number of score rows written.
-   */
-  async recomputeScores(placeId: string): Promise<number> {
-    return this.dataSource.transaction(async (em) => {
-      await this.lock(em, placeId, false);
-      const place = await em.findOneByOrFail(Place, { id: placeId });
-      await this.deletePastRows(em, place);
-      return this.rescore(em, place, new Date());
-    });
-  }
-
-  /**
-   * Places to recompute: by default those with scores of another ALGO_VERSION,
-   * with `all` every place that has weather.
-   */
-  async findPlacesToRecompute(all: boolean): Promise<string[]> {
-    const qb = Place.createQueryBuilder('p').select('p.id').where('p.lastFetchedAt IS NOT NULL').orderBy('p.id');
-    if (!all) {
-      qb.andWhere(
-        'EXISTS (SELECT 1 FROM activity_scores s WHERE s.place_id = p.id AND s.algo_version <> :version)',
-        { version: ALGO_VERSION },
-      );
-    }
-    return (await qb.getMany()).map((p) => p.id);
-  }
-
-  /** Scores are always derived from weather_hourly, the same way for refresh and recompute. */
+  /** Scores are derived from the weather_hourly rows just written. */
   private async rescore(
     em: EntityManager,
     place: Pick<Place, 'id' | 'timezone' | 'elevationM' | 'hasMarineData'>,
